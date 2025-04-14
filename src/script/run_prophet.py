@@ -345,5 +345,5 @@ if __name__ == "__main__":
     # run("data/aapl_stock_price.csv", "2275 days", "252 days", "1 days", 5, 20)
     run_model_exists(
         "data/aapl_stock_price.csv",
-        "src/public/prophet/results/model_20250413_225435.json",
+        "src/public/prophet/results/model_20250414_122037.json",
     )
