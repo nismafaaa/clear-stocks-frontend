@@ -94,7 +94,7 @@ class StockCrawler():
         """
         url = f"https://finance.yahoo.com/quote/{ticker}/history"
         page_content = self._get_page_content(url=url, verbose=True)
-        if page_content is "":
+        if page_content == "":
             logging.warning("page content is empty, can't fetch stock data.")
             return
         raw_data = self._get_recent_stock_price(page_content=page_content)
@@ -105,4 +105,9 @@ class StockCrawler():
         return df_stock.to_dict(orient="records")
 
 
+if __name__ == "__main__":
+    crawler = StockCrawler()
 
+    stock = crawler.perform_crawl(ticker="MSFT")
+
+    print(stock[0])
