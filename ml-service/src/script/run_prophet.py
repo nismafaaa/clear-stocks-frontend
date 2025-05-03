@@ -7,7 +7,7 @@ from datetime import datetime
 
 # Model
 # from prophet import Prophet
-from prophet_class import MyProphet
+from script.prophet_class import MyProphet
 from prophet.diagnostics import cross_validation, performance_metrics
 from prophet.serialize import model_to_json, model_from_json
 
@@ -188,8 +188,9 @@ class ProphetModel:
             print(f"Error saving plot to {file_path}: {e}")
 
         plt.close(fig)
+        forecast_results = forecast["yhat"].to_list()
 
-        return forecast["yhat"].to_numpy(), fds
+        return forecast_results , fds
 
     def forecast_with_existing_model(
         self,
@@ -349,7 +350,7 @@ if __name__ == "__main__":
     #     "src/public/prophet/results/model_20250414_122037.json",
     # )
     pm = ProphetModel()
-    pm._init("data/aapl_stock_price.csv")
+    pm._init("../data-service/data/aapl_stock_price.csv")
     temp, _ = pm.forecast_best(
         {
             'holidays': None,
@@ -358,7 +359,7 @@ if __name__ == "__main__":
             'seasonality_mode': 'additive',
             'period': 252
         },
-        '2025-01-21',
+        '2025-05-01',
         3
     )
     print(temp)
