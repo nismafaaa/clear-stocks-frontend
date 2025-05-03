@@ -1,14 +1,13 @@
 import re
 import requests
 import logging
+from datetime import datetime, date
 import pandas as pd
 
-from flask import jsonify
-from typing import Dict
 from bs4 import BeautifulSoup
 from requests import HTTPError, Timeout, RequestException
 
-logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 class StockCrawler():
 
@@ -30,7 +29,7 @@ class StockCrawler():
             print(e)
             return None
         
-    def _get_recent_stock_price(self, page_content:str)->list[str]:
+    def _get_stock_price(self, page_content:str) -> list[str]:
         """
         Function to scrape recent stock data from yahoo finance with the desired ticker
 
@@ -46,9 +45,25 @@ class StockCrawler():
 
         return raw_data
     
-    def _parse_data(self, input_list:list)->list:
+    def _remove_non_stock_data(self, input_list: list) -> list:
+        cleaned_list = []
+        for item in input_list:
+            date_match = bool(re.match(r"\w{3} \d{1,2}, \d{4}", item))
+            stock_match = bool(re.match(r"^\d{1,3}(,\d{3})*(\.\d{2})?$", item))
+            vol_match = bool(re.match(r"^\d{1,3}(,\d{3})+$", item))
+
+            if not (date_match or  stock_match or  vol_match):
+                print(f"non stock data found : {item}")
+                cleaned_list = cleaned_list[:-1]
+                continue
+
+            cleaned_list.append(item)
+
+        return cleaned_list
+    
+    def _parse_data(self, input_list:list) -> list:
         """
-        Function to parse raw results scrape from certain ticker
+        Function to parse raw results scrape
 
         params :
             input_list (list[Option]) : raw stock data
@@ -71,7 +86,7 @@ class StockCrawler():
                 print(f"Skipping incomplete data at index {i}")
         return parsed_data
     
-    def _date_format(self, input:str)->str:
+    def _date_format(self, input:str) -> str:
         input = input.lower()
         month_to_number = {
         'jan': '01', 'feb': '02', 'mar': '03',
@@ -88,26 +103,57 @@ class StockCrawler():
         
         return f"{year}-{month_num}-{day}"
     
-    def perform_crawl(self, ticker:str)->Dict:
+    def perform_crawl_with_date(self, ticker:str, start_date:str, end_date:str) -> dict:
         """
-        Crawler's function wrapper
+        function to perform crawl with date range and certain ticker
+
+        params : 
+            ticker (str) : stock symbol
+            start_date (str) : start date (format:YYYY-MM-DD/e.g. 2025-05-02)
+            end_date (str) : end date (format:YYYY-MM-DD/e.g. 2025-05-02)
+        return :
+            stock (list[dict]) : scrape results
         """
-        url = f"https://finance.yahoo.com/quote/{ticker}/history"
+        date1 = start_date.split("-")
+        date2 = end_date.split("-")
+        dt1 = datetime(int(date1[0]), int(date1[1]), int(date1[2]), 0, 0)
+        dt2 = datetime(int(date2[0]), int(date2[1]), int(date2[2]), 0, 0)
+        url = f"https://finance.yahoo.com/quote/{ticker}/history/?period1={dt1.timestamp()}&period2={dt2.timestamp()}"
         page_content = self._get_page_content(url=url, verbose=True)
         if page_content == "":
             logging.warning("page content is empty, can't fetch stock data.")
             return
-        raw_data = self._get_recent_stock_price(page_content=page_content)
+        raw_data = self._get_stock_price(page_content=page_content)
+        raw_data = self._remove_non_stock_data(raw_data)
         parsed_data = self._parse_data(raw_data)
         df_stock = pd.DataFrame(parsed_data)
         df_stock['Date'] = df_stock['Date'].apply(self._date_format)
+        stock = df_stock.to_dict(orient="records")
 
-        return df_stock.to_dict(orient="records")
+        return stock
+    
+    def perform_crawl_recent_data(self, ticker:str) -> dict:
+        """
+        function to perform crawl newest (1 day) stock price with certain ticker
 
+        params :
+            ticker (str) : stock symbol (e.g. AAPL)
+        return :
+            stock (list[dict]) : scrape results
+        """
+        date_today = date.today()
+        dt1 = datetime(date_today.year, date_today.month, (date_today.day-1), 0, 0)
+        dt2 = datetime(date_today.year, date_today.month, date_today.day, 0, 0)
+        url = f"https://finance.yahoo.com/quote/{ticker}/history/?period1={int(dt1.timestamp())}&period2={int(dt2.timestamp())}"
+        page_content = self._get_page_content(url, verbose=True)
+        if page_content == "":
+            logging.warning("page content is empty, can't fetch stock data.")
+            return
+        raw_data = self._get_stock_price(page_content=page_content)
+        raw_data = self._remove_non_stock_data(raw_data)
+        parsed_data = self._parse_data(raw_data)
+        df_stock = pd.DataFrame(parsed_data)
+        df_stock['Date'] = df_stock['Date'].apply(self._date_format)
+        stock = df_stock.to_dict(orient="records")
 
-if __name__ == "__main__":
-    crawler = StockCrawler()
-
-    stock = crawler.perform_crawl(ticker="MSFT")
-
-    print(stock[0])
+        return stock[0]
