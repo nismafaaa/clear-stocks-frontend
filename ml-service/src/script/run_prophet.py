@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 # Model
-from prophet import Prophet
+# from prophet import Prophet
+from prophet_class import MyProphet
 from prophet.diagnostics import cross_validation, performance_metrics
 from prophet.serialize import model_to_json, model_from_json
 
@@ -61,7 +62,7 @@ class ProphetModel:
         # Use cross validation to evaluate all parameters
         for params in all_params:
             # Fit model with given params
-            m = Prophet(**params).fit(
+            m = MyProphet(**params).fit(
                 ProphetModel._get_prepared_data(data=self.data, column=column)
             )
             df_cv = cross_validation(
@@ -104,7 +105,7 @@ class ProphetModel:
 
         fds = pd.DataFrame({"ds": future_dates})
 
-        best_model = Prophet(
+        best_model = MyProphet(
             changepoint_prior_scale=best_params.get("changepoint_prior_scale", 0.05),
             seasonality_prior_scale=best_params.get("seasonality_prior_scale", 10.0),
             seasonality_mode=best_params.get("seasonality_mode", "additive"),
@@ -343,7 +344,22 @@ def run_model_exists(data_loc, model_loc, forecast_length=5, plot_history_days=2
 
 if __name__ == "__main__":
     # run("data/aapl_stock_price.csv", "2275 days", "252 days", "1 days", 5, 20)
-    run_model_exists(
-        "data/aapl_stock_price.csv",
-        "src/public/prophet/results/model_20250414_122037.json",
+    # run_model_exists(
+    #     "data/aapl_stock_price.csv",
+    #     "src/public/prophet/results/model_20250414_122037.json",
+    # )
+    pm = ProphetModel()
+    pm._init("data/aapl_stock_price.csv")
+    temp, _ = pm.forecast_best(
+        {
+            'holidays': None,
+            'changepoint_prior_scale': 0.1,
+            'seasonality_prior_scale': 10,
+            'seasonality_mode': 'additive',
+            'period': 252
+        },
+        '2025-01-21',
+        3
     )
+    print(temp)
+
