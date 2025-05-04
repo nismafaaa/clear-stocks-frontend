@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import itertools
 import matplotlib.pyplot as plt
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Model
 # from prophet import Prophet
@@ -79,6 +79,8 @@ class ProphetModel:
         best_params = all_params[np.argmin(rmses)]
 
         return best_params
+
+    from datetime import datetime, timedelta
 
     def forecast_best(
         self,
@@ -188,7 +190,8 @@ class ProphetModel:
             print(f"Error saving plot to {file_path}: {e}")
 
         plt.close(fig)
-        forecast_results = forecast["yhat"].to_list()
+        
+        forecast_results = {"date":future_dates.to_list(), "values": forecast["yhat"].to_list()}
 
         return forecast_results , fds
 

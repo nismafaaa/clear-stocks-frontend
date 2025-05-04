@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  ml-service:
+    container_name: ml-service
+    build:
+      context: .
+      dockerfile: ml-service/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./src:/app/src
+    restart: unless-stopped

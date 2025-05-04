@@ -1,3 +1,4 @@
+import os
 import logging
 from fastapi import APIRouter
 from script.run_prophet import ProphetModel
@@ -16,7 +17,10 @@ def info():
 @router.get("/ml/predict")
 def predict(ticker:str=None, forecast_length:int=None):
     pm = ProphetModel()
-    pm._init(f"data/{ticker}_stock_price.csv")
+    data_path = f"data/{ticker}_stock_price.csv"
+    if not os.path.exists(data_path):
+        logger.error("Data path didn't exists.")
+    pm._init(data_path)
     forecast_results, _ = pm.forecast_best(
         {
             'holidays': None,
@@ -28,4 +32,4 @@ def predict(ticker:str=None, forecast_length:int=None):
         '2025-05-02',
         forecast_length=forecast_length
     )
-    return {"results" : forecast_results}
+    return {"ticker":ticker ,"results" : forecast_results}
