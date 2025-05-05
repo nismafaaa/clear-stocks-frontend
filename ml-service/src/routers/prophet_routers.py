@@ -19,8 +19,10 @@ def predict(ticker:str=None, forecast_length:int=None):
     pm = ProphetModel()
     data_path = f"data/{ticker}_stock_price.csv"
     if not os.path.exists(data_path):
-        logger.error("Data path didn't exists.")
+        logger.error("Data path or ticker stock didn't exists.")
+        return
     pm._init(data_path)
+    logger.info("Start forecasting...")
     forecast_results, _ = pm.forecast_best(
         {
             'holidays': None,
@@ -32,4 +34,5 @@ def predict(ticker:str=None, forecast_length:int=None):
         '2025-05-02',
         forecast_length=forecast_length
     )
+    logger.info("Done forecasting.")
     return {"ticker":ticker ,"results" : forecast_results}

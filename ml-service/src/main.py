@@ -1,5 +1,8 @@
+import logging
 from fastapi import FastAPI
 from routers import prophet_routers
+
+logging.basicConfig(format="[%(asctime)s]:[%(levelname)s]:%(message)s", level=logging.INFO)
 
 app = FastAPI()
 
