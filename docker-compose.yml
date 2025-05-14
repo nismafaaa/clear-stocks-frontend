@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   ml-service:
@@ -11,5 +10,44 @@ services:
     environment:
       - PYTHONPATH=/app/src
     volumes:
-      - ./src:/app/src
+      - ./ml-service/src:/app/src
+      - ./data:/app/data
+    restart: unless-stopped
+
+  db-service:
+    container_name: db-service
+    build:
+      context: .
+      dockerfile: db-service/Dockerfile
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./access_key.txt
+    environment:
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./db-service/src:/app/src
+    restart: unless-stopped
+    
+  data-service:
+    container_name: data-service
+    build:
+      context: .
+      dockerfile: data-service/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./data-service/src:/app/src
+      - ./data:/app/data
+    restart: unless-stopped
+
+  scheduler-service:
+    build:
+      context: .
+      dockerfile: scheduler-service/Dockerfile
+    container_name: scheduler-service
+    depends_on:
+      - data-service
     restart: unless-stopped

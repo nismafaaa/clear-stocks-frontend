@@ -1,7 +1,7 @@
 import re
 import requests
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import pandas as pd
 
 from bs4 import BeautifulSoup
@@ -10,23 +10,25 @@ from requests import HTTPError, Timeout, RequestException
 logger = logging.getLogger(__name__)
 
 class StockCrawler():
-
+        
     def _get_page_content(self, url, verbose=True):
-        """
-        Function to get the html element from the given url 
-        """
         try:
             headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1"
             }
-            response = requests.get(url, headers=headers)
+            session = requests.Session()
+            response = session.get(url, headers=headers)
             response.raise_for_status()
-            if verbose :
-                print("Requests success.")
+            if verbose:
+                print(f"[INFO] Request to {url} succeeded with status {response.status_code}")
             return response.content
-        except (HTTPError, Timeout, ConnectionError, RequestException) as e:
-            print(e)
+        except Exception as e:
+            print(f"[ERROR] Failed to fetch URL {url}: {e}")
             return None
         
     def _get_stock_price(self, page_content:str) -> list[str]:
@@ -116,11 +118,11 @@ class StockCrawler():
         """
         date1 = start_date.split("-")
         date2 = end_date.split("-")
-        dt1 = datetime(int(date1[0]), int(date1[1]), int(date1[2]), 0, 0)
-        dt2 = datetime(int(date2[0]), int(date2[1]), int(date2[2]), 0, 0)
-        url = f"https://finance.yahoo.com/quote/{ticker}/history/?period1={dt1.timestamp()}&period2={dt2.timestamp()}"
+        dt1 = datetime(int(date1[0]), int(date1[1]), int(date1[2]), 0, 0, tzinfo=timezone.utc)
+        dt2 = datetime(int(date2[0]), int(date2[1]), int(date2[2]), 0, 0, tzinfo=timezone.utc)
+        url = f"https://finance.yahoo.com/quote/{ticker}/history/?frequency=1d&period1={int(dt1.timestamp())}&period2={int(dt2.timestamp())}"
         page_content = self._get_page_content(url=url, verbose=True)
-        if page_content == "":
+        if page_content == None:
             logging.warning("page content is empty, can't fetch stock data.")
             return
         raw_data = self._get_stock_price(page_content=page_content)
@@ -141,12 +143,12 @@ class StockCrawler():
         return :
             stock (list[dict]) : scrape results
         """
-        date_today = date.today()
-        dt1 = datetime(date_today.year, date_today.month, (date_today.day-1), 0, 0)
-        dt2 = datetime(date_today.year, date_today.month, date_today.day, 0, 0)
-        url = f"https://finance.yahoo.com/quote/{ticker}/history/?period1={int(dt1.timestamp())}&period2={int(dt2.timestamp())}"
+        date_now = datetime.now()
+        dt1 = datetime(date_now.year, date_now.month, (date_now.day), 0, 0, 0, tzinfo=timezone.utc)
+        dt2 = datetime(date_now.year, date_now.month, (date_now.day+1), 0, 0, 0, tzinfo=timezone.utc)
+        url = f"https://finance.yahoo.com/quote/{ticker}/history/?frequency=1d&period1={int(dt1.timestamp())}&period2={int(dt2.timestamp())}"
         page_content = self._get_page_content(url, verbose=True)
-        if page_content == "":
+        if page_content == None:
             logging.warning("page content is empty, can't fetch stock data.")
             return
         raw_data = self._get_stock_price(page_content=page_content)

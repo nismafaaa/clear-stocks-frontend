@@ -1,16 +1,16 @@
 import os
-import logging
 import numpy as np
 import pandas as pd
 import itertools
 import matplotlib.pyplot as plt
-from datetime import datetime
+from datetime import datetime, timedelta
 
+# Model
+# from prophet import Prophet
 from script.prophet_class import MyProphet
 from prophet.diagnostics import cross_validation, performance_metrics
 from prophet.serialize import model_to_json, model_from_json
 
-logger = logging.getLogger(__name__)
 
 class ProphetModel:
     @classmethod
@@ -18,21 +18,21 @@ class ProphetModel:
         try:
             self.data = pd.read_csv(data_loc, index_col=[0], parse_dates=[0])
             self.data.index.name = "Date"
-            logger.info(
+            print(
                 f"Data loaded. Shape: {self.data.shape}, Last date: {self.data.index.max()}"
             )
             if not isinstance(self.data.index, pd.DatetimeIndex):
-                logger.warning(
-                    "Index was not parsed as DatetimeIndex. Attempting conversion."
+                print(
+                    "Warning: Index was not parsed as DatetimeIndex. Attempting conversion."
                 )
                 self.data.index = pd.to_datetime(self.data.index)
             self.data.sort_index(inplace=True)  # Ensure data is sorted by date
         except FileNotFoundError:
-            logger.error(f"Error: Data file not found at {data_loc}")
+            print(f"Error: Data file not found at {data_loc}")
             # Init empty if error in loading data
             self.data = pd.DataFrame()
         except Exception as e:
-            logger.error(f"Error loading or parsing data from {data_loc}: {e}")
+            print(f"Error loading or parsing data from {data_loc}: {e}")
             # Init empty if error in loading data
             self.data = pd.DataFrame()
 
@@ -113,7 +113,7 @@ class ProphetModel:
             seasonality_mode=best_params.get("seasonality_mode", "additive"),
         )
 
-        logger.info(
+        print(
             f"Fitting Prophet model on data up to {self.data.index[-1].strftime('%Y-%m-%d')}..."
         )
         best_model.fit(ProphetModel._get_prepared_data(data=self.data, column=column))
@@ -124,7 +124,7 @@ class ProphetModel:
         # Define output directory and ensure it exists
         output_dir = os.path.join("src", "public", "prophet", "results")
         os.makedirs(output_dir, exist_ok=True)
-        logger.info("Saving model...")
+        print("Saving model...")
 
         try:
             # Create timestamped filename
@@ -133,15 +133,15 @@ class ProphetModel:
             with open(file_path, "w") as fout:
                 fout.write(model_to_json(best_model))  # Save model
         except:
-            logger.warning("Failed saving model.")
+            print("Failed saving model.")
 
-        logger.info(
+        print(
             f"Predicting next {forecast_length} work days starting after {yestd.strftime('%Y-%m-%d')}..."
         )
         forecast = best_model.predict(fds)
 
         # Generate and save plot
-        logger.info("Generating forecast plot...")
+        print("Generating forecast plot...")
         fig, ax = plt.subplots(figsize=(10, 4))
 
         best_model.plot(forecast, uncertainty=True, ax=ax)
@@ -185,9 +185,9 @@ class ProphetModel:
         # Save the figure
         try:
             fig.savefig(file_path)
-            logger.info(f"Forecast plot saved to: {file_path}")
+            print(f"Forecast plot saved to: {file_path}")
         except Exception as e:
-            logger.error(f"Error saving plot to {file_path}: {e}")
+            print(f"Error saving plot to {file_path}: {e}")
 
         plt.close(fig)
         
@@ -225,7 +225,7 @@ class ProphetModel:
             with open(model_loc, "r") as fin:
                 best_model = model_from_json(fin.read())  # Load model
         except:
-            logger.error("Failed to load model. Aborting forecast...")
+            print("Failed to load model. Aborting forecast...")
             return 0
 
         # Generate timestamp to name results
@@ -235,13 +235,13 @@ class ProphetModel:
         output_dir = os.path.join("src", "public", "prophet", "results")
         os.makedirs(output_dir, exist_ok=True)
 
-        logger.info(
+        print(
             f"Predicting next {forecast_length} work days starting after {yestd.strftime('%Y-%m-%d')}..."
         )
         forecast = best_model.predict(fds)
 
         # Generate and save plot
-        logger.info("Generating forecast plot...")
+        print("Generating forecast plot...")
         fig, ax = plt.subplots(figsize=(10, 4))
 
         best_model.plot(forecast, uncertainty=True, ax=ax)
@@ -285,9 +285,9 @@ class ProphetModel:
         # Save the figure
         try:
             fig.savefig(file_path)
-            logger.info(f"Forecast plot saved to: {file_path}")
+            print(f"Forecast plot saved to: {file_path}")
         except Exception as e:
-            logger.error(f"Error saving plot to {file_path}: {e}")
+            print(f"Error saving plot to {file_path}: {e}")
 
         plt.close(fig)
 
@@ -345,6 +345,16 @@ def run_model_exists(data_loc, model_loc, forecast_length=5, plot_history_days=2
     else:
         print("\nForecast skipped due to data loading issues.")
 
+def get_last_date_from_csv(csv_path: str) -> str:
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"CSV file not found: {csv_path}")
+    
+    df = pd.read_csv(csv_path)
+    if df.empty or 'Date' not in df.columns:
+        raise ValueError("CSV file is empty or missing 'Date' column")
+    
+    last_date = df['Date'].max()
+    return last_date
 
 if __name__ == "__main__":
     # run("data/aapl_stock_price.csv", "2275 days", "252 days", "1 days", 5, 20)
