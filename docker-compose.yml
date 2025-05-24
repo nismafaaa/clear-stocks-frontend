@@ -14,40 +14,15 @@ services:
       - ./data:/app/data
     restart: unless-stopped
 
-  db-service:
-    container_name: db-service
+  backend-service:
+    container_name: backend-service
     build:
       context: .
-      dockerfile: db-service/Dockerfile
-    ports:
-      - "5001:5001"
-    env_file:
-      - ./access_key.txt
-    environment:
-      - PYTHONPATH=/app/src
-    volumes:
-      - ./db-service/src:/app/src
-    restart: unless-stopped
-    
-  data-service:
-    container_name: data-service
-    build:
-      context: .
-      dockerfile: data-service/Dockerfile
+      dockerfile: backend-service/Dockerfile
     ports:
       - "8001:8001"
     environment:
       - PYTHONPATH=/app/src
     volumes:
-      - ./data-service/src:/app/src
-      - ./data:/app/data
-    restart: unless-stopped
-
-  scheduler-service:
-    build:
-      context: .
-      dockerfile: scheduler-service/Dockerfile
-    container_name: scheduler-service
-    depends_on:
-      - data-service
+      - ./backend-service/src:/app/src
     restart: unless-stopped
