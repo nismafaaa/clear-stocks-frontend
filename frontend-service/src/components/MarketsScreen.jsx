@@ -6,7 +6,8 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart
 } from 'recharts';
 
-const API_BASE = "http://10.34.100.114:8002";
+// Use environment variable with fallback
+const API_BASE = process.env.REACT_APP_API_BASE;
 
 // List of tickers we want to track
 const TICKERS = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'F', 'GOOG', 'PONY', 'QBTS', 'IONQ', 'META'];
@@ -19,33 +20,84 @@ const MarketsScreen = () => {
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
   const [chartData, setChartData] = useState([]);
   const [marketSentiment, setMarketSentiment] = useState('Neutral');
-  const [dataDate, setDataDate] = useState(''); // New state for the data date
+  const [dataDate, setDataDate] = useState('');
+  const [error, setError] = useState(null); // Add error state
 
   // Fetch data for all tickers
   useEffect(() => {
     const fetchAllStockData = async () => {
       setLoading(true);
+      setError(null); // Reset error state
+      
       try {
+        console.log("Fetching stock data from:", API_BASE);
+        
         const promises = TICKERS.map(ticker => 
-          fetch(`${API_BASE}/fetch-recent?ticker=${ticker}`)
-            .then(res => res.json())
+          fetch(`${API_BASE}/fetch-recent?ticker=${ticker}`, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+              'User-Agent': 'StockApp/1.0', // Add a custom user agent
+              'X-Requested-With': 'XMLHttpRequest' // Additional header to bypass some protections
+            },
+            mode: 'cors', // Explicitly set CORS mode
+            cache: 'no-store',
+            credentials: 'omit' // Don't send credentials
+          })
+            .then(async res => {
+              console.log(`Response status for ${ticker}: ${res.status}`);
+              console.log(`Response headers for ${ticker}:`, [...res.headers.entries()]);
+              
+              if (!res.ok) {
+                // Check if it's the ngrok abuse protection page
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('text/html')) {
+                  const htmlText = await res.text();
+                  if (htmlText.includes('ngrok') && htmlText.includes('abuse')) {
+                    throw new Error(`ngrok abuse protection triggered for ${ticker}`);
+                  }
+                }
+                console.warn(`Bad response for ${ticker}: ${res.status}`);
+                return null;
+              }
+              
+              try {
+                const data = await res.json();
+                console.log(`Received data for ${ticker}:`, data);
+                return data;
+              } catch (jsonError) {
+                console.error(`JSON parse error for ${ticker}:`, jsonError);
+                // Try to get text response to debug
+                const text = await res.text();
+                console.error(`Raw response for ${ticker}:`, text.substring(0, 200) + '...');
+                return null;
+              }
+            })
             .catch(err => {
-              console.error(`Error fetching data for ${ticker}:`, err);
-              return null; // Return null for failed requests
+              console.error(`Network error fetching data for ${ticker}:`, err);
+              return null;
             })
         );
         
         const results = await Promise.all(promises);
+        console.log("API results:", results);
+        
+        // Check if all results are null (indicating ngrok protection issue)
+        const validResults = results.filter(result => result !== null);
+        if (validResults.length === 0) {
+          throw new Error("All API calls failed. This might be due to ngrok's abuse protection. Please check your ngrok configuration.");
+        }
+        
         const stocksData = {};
         const summaryData = [];
-        let latestDate = ''; // To store the latest date found
+        let latestDate = '';
 
         results.forEach((data, index) => {
           const ticker = TICKERS[index];
           
-          // Handle different data formats
           if (data && !Array.isArray(data) && data.close) {
-            // Single object format
             console.log(`Processing single data object for ${ticker}:`, data);
             
             const price = parseFloat(data.close);
@@ -53,23 +105,20 @@ const MarketsScreen = () => {
             const changeValue = price - prevPrice;
             const changePercent = ((changeValue) / prevPrice) * 100;
                         
-            // For single data point, generate a more realistic looking chart
             const dataPoints = [];
-           
             let currentPrice = prevPrice;
-            // Generate data points for each hour of trading
+            
             for (let hour = 9; hour <= 16; hour++) {
-              // Calculate price trend with more realistic movement
-              const progress = (hour - 9) / 7; // Progress through trading day (0 to 1)
-              const volatility = price * 0.005; // 0.5% volatility
-              const randomChange = (Math.random() - 0.45) * volatility; // Slight bias in trend direction
-              const trendComponent = (price - prevPrice) * progress; // Linear trend component
+              const progress = (hour - 9) / 7;
+              const volatility = price * 0.005;
+              const randomChange = (Math.random() - 0.45) * volatility;
+              const trendComponent = (price - prevPrice) * progress;
               
               currentPrice = prevPrice + trendComponent + randomChange;
               
               dataPoints.push({
                 hour: hour,
-                displayTime: `${hour}:00`, // Exact hour format
+                displayTime: `${hour}:00`,
                 value: currentPrice
               });
             }
@@ -88,18 +137,12 @@ const MarketsScreen = () => {
               changePercent
             });
 
-            // Capture the date from the 'timestamp' field of the current data point
             if (data.timestamp) {
                 latestDate = new Date(data.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             }
-
           } 
-          // Check if data is an array with elements (for historical data, if your API ever returns it)
           else if (data && Array.isArray(data) && data.length > 0) {
-            // Original array format handling
-            // Get the most recent data point
             const latestData = data[data.length - 1];
-            // Get previous day data for change calculation
             const previousData = data.length > 1 ? data[data.length - 2] : null;
             
             const price = parseFloat(latestData.close);
@@ -112,7 +155,6 @@ const MarketsScreen = () => {
               changeValue,
               changePercent,
               data: data.map(d => ({
-                // Use d.timestamp for date parsing if available, otherwise d.date
                 date: new Date(d.timestamp || d.date).toLocaleDateString(), 
                 value: parseFloat(d.close)
               }))
@@ -125,25 +167,20 @@ const MarketsScreen = () => {
               changePercent
             });
 
-            // Capture the date from the 'timestamp' field of the latest data point in the array
             if (latestData.timestamp) {
                 latestDate = new Date(latestData.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             }
-
-          } else {
-            console.warn(`No valid data for ${ticker}:`, data);
+          } else if (data === null) {
+            console.warn(`No valid data for ${ticker} - might be blocked by ngrok protection`);
           }
         });
         
         console.log("Processed market data:", stocksData);
         console.log("Summary data:", summaryData);
         
-        // Continue only if we have data
         if (summaryData.length > 0) {
-          // Sort by percent change
           summaryData.sort((a, b) => b.changePercent - a.changePercent);
           
-          // Determine market sentiment (simple approach)
           const positiveStocks = summaryData.filter(stock => stock.changePercent > 0);
           if (positiveStocks.length > summaryData.length / 2) {
             setMarketSentiment('Bullish');
@@ -153,30 +190,29 @@ const MarketsScreen = () => {
           
           setMarketData(stocksData);
           setMarketSummary(summaryData);
-          setDataDate(latestDate); // Set the retrieved date
+          setDataDate(latestDate);
           
-          // Set chart data for the selected ticker
           if (stocksData[selectedTicker]) {
             setChartData(stocksData[selectedTicker].data);
           }
+          
+          setLoading(false);
         } else {
-          console.error("No valid market data was processed");
+          throw new Error("No valid market data was processed. This might be due to ngrok's abuse protection or API issues.");
         }
       } catch (error) {
-        console.error("Error fetching stock data:", error);
-      } finally {
+        console.error("Error in fetchAllStockData:", error);
+        setError(error.message);
         setLoading(false);
       }
     };
 
     fetchAllStockData();
     
-    // Update data every minute
-    const intervalId = setInterval(fetchAllStockData, 60000);
+    const intervalId = setInterval(fetchAllStockData, 120000);
     return () => clearInterval(intervalId);
   }, []);
   
-  // Update chart data when selected ticker changes
   useEffect(() => {
     if (marketData[selectedTicker]) {
       setChartData(marketData[selectedTicker].data);
@@ -185,18 +221,14 @@ const MarketsScreen = () => {
   
   const handleTickerClick = (ticker) => {
     setSelectedTicker(ticker);
-    // You might want to fetch more detailed data here
   };
   
   const handleStockDetailsClick = (ticker) => {
     navigate(`/chart/${ticker}`);
   };
 
-  // Find best and worst performing stocks
   const bestStock = marketSummary.length > 0 ? marketSummary[0] : null;
   const worstStock = marketSummary.length > 0 ? marketSummary[marketSummary.length - 1] : null;
-  
-  // Find market leader - for simplicity using the stock with highest price
   const leader = marketSummary.length > 0 ? 
     marketSummary.reduce((prev, current) => (prev.price > current.price) ? prev : current) 
     : null;
@@ -217,9 +249,33 @@ const MarketsScreen = () => {
         </div>
       )}
 
+      {/* Error display */}
+      {error && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-dark-card p-6 rounded-lg border border-danger max-w-md mx-4">
+            <h3 className="text-lg font-bold text-danger mb-3">Error Loading Data</h3>
+            <p className="text-text-secondary mb-4">{error}</p>
+            <div className="space-y-2 text-sm text-text-secondary">
+              <p><strong>Possible solutions:</strong></p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Access your ngrok URL directly in browser first</li>
+                <li>Check if your backend server is running</li>
+                <li>Verify the API_BASE environment variable</li>
+                <li>Try refreshing the ngrok tunnel</li>
+              </ul>
+            </div>
+            <button 
+              onClick={() => {setError(null); window.location.reload();}}
+              className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 p-6 mt-16 mb-16">
         <div className="max-w-7xl mx-auto px-4">
-          {/* Back button to SplashScreen */}
           <button
             type="button"
             className="mb-4 text-sm text-text-secondary hover:text-primary transition-colors"
@@ -234,21 +290,18 @@ const MarketsScreen = () => {
           {/* Insight Boxes */}
           <div className="mb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-4 w-full">
-              {/* Market Sentiment */}
               <div className="bg-dark-card p-4 rounded-md border border-dark-border w-full">
                 <div className="text-sm text-text-secondary mb-1">Market</div>
                 <div className={`text-xl font-bold ${marketSentiment === 'Bullish' ? 'text-success' : 'text-danger'}`}>
                   {marketSentiment}
                 </div>
               </div>
-              {/* Market Leader */}
               {leader && (
                 <div className="bg-dark-card p-4 rounded-md border border-dark-border w-full">
                   <div className="text-sm text-text-secondary mb-1">Leader</div>
                   <div className="text-xl font-bold text-text-primary">{leader.ticker}</div>
                 </div>
               )}
-              {/* Best Stock */}
               {bestStock && (
                 <div className="bg-dark-card p-4 rounded-md border border-dark-border w-full">
                   <div className="text-sm text-text-secondary mb-1">Top Stock</div>
@@ -258,7 +311,6 @@ const MarketsScreen = () => {
                   </div>
                 </div>
               )}
-              {/* Worst Stock */}
               {worstStock && (
                 <div className="bg-dark-card p-4 rounded-md border border-dark-border w-full">
                   <div className="text-sm text-text-secondary mb-1">Worst Stock</div>
@@ -274,7 +326,6 @@ const MarketsScreen = () => {
           <h2 className="text-2xl font-bold mb-4 text-text-primary">Market Summary</h2>
           
           <div className="flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-6">
-            {/* Stock List */}
             <div className="w-full md:w-1/3 bg-dark-card rounded-xl border border-dark-border p-4">
               <div className="flex justify-between pb-2 border-b border-dark-border mb-2">
                 <div className="font-bold text-text-primary">Symbol</div>
@@ -285,6 +336,10 @@ const MarketsScreen = () => {
               <div className="space-y-2 max-h-96 overflow-auto custom-scrollbar pr-2">
                 {loading ? (
                   <p className="text-text-secondary text-center py-4">Loading market data...</p>
+                ) : marketSummary.length === 0 ? (
+                  <p className="text-text-secondary text-center py-4">
+                    No market data available. Check your connection.
+                  </p>
                 ) : (
                   marketSummary.map(stock => (
                     <div 
@@ -303,7 +358,6 @@ const MarketsScreen = () => {
               </div>
             </div>
             
-            {/* Chart for Selected Stock */}
             <div className="w-full md:w-2/3 bg-dark-card rounded-xl border border-dark-border p-4 flex flex-col">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-text-primary">{selectedTicker}</h3>
@@ -323,14 +377,12 @@ const MarketsScreen = () => {
                       margin={{ top: 20, right: 30, left: 70, bottom: 10 }}
                     >
                       <defs>
-                        {/* Main area gradient with electric blue (#2563EB) and more subtle stops */}
                         <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#2563EB" stopOpacity={0.25}/>
                           <stop offset="50%" stopColor="#2563EB" stopOpacity={0.10}/>
                           <stop offset="100%" stopColor="#2563EB" stopOpacity={0}/>
                         </linearGradient>
                         
-                        {/* Glow effect filter */}
                         <filter id="glow">
                           <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
                           <feMerge> 
@@ -339,7 +391,6 @@ const MarketsScreen = () => {
                           </feMerge>
                         </filter>
                         
-                        {/* Shadow filter */}
                         <filter id="dropshadow" x="-20%" y="-20%" width="140%" height="140%">
                           <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor="#2563EB" floodOpacity="0.15"/>
                         </filter>
@@ -389,7 +440,6 @@ const MarketsScreen = () => {
                         itemStyle={{ color: '#10B981' }}
                       />
                       
-                      {/* Area with gradient fill */}
                       <Area
                         type="monotone"
                         dataKey="value"

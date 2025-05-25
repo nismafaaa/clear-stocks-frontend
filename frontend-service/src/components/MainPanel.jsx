@@ -40,6 +40,7 @@ export default function MainPanel() {
   const [forecastData, setForecastData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [apiError, setApiError] = useState(null); // Add this state for API errors
   const forecastChartRef = useRef(null);
 
   useEffect(() => {
@@ -47,15 +48,28 @@ export default function MainPanel() {
       if (!selectedStock || !startDate || !endDate) return;
 
       setLoading(true);
+      setApiError(null); // Reset any previous errors
       try {
         const res = await fetch(
-          `${API_BASE}/fetch-historical?ticker=${selectedStock}&start_date=${startDate}&end_date=${endDate}`
+          `${API_BASE}/fetch-historical?ticker=${selectedStock}&start_date=${startDate}&end_date=${endDate}`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'ngrok-skip-browser-warning': 'true' // Skip ngrok browser warning
+            }
+          }
         );
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        
         const data = await res.json();
         setHistoricalData(data);
       } catch (err) {
         console.error("Error fetching historical data:", err);
         setHistoricalData([]);
+        setApiError(`Failed to load data: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -68,6 +82,7 @@ export default function MainPanel() {
   useEffect(() => {
     if (forecastDays === 5 || forecastDays === 21) {
       setForecastLoading(true);
+      setApiError(null); // Reset any previous errors
       console.log(`Fetching ${forecastDays}-day forecast data for ${selectedStock}`);
       
       // Determine which API endpoint to use based on forecastDays
@@ -75,8 +90,18 @@ export default function MainPanel() {
         ? `${API_BASE}/fetch-recent-weekly-predict?ticker=${selectedStock}`
         : `${API_BASE}/fetch-recent-monthly-predict?ticker=${selectedStock}`;
       
-      fetch(forecastEndpoint)
-        .then(res => res.json())
+      fetch(forecastEndpoint, {
+        headers: {
+          'Accept': 'application/json',
+          'ngrok-skip-browser-warning': 'true' // Skip ngrok browser warning
+        }
+      })
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+          return res.json();
+        })
         .then(data => {
           console.log(`Raw ${forecastDays}-day forecast data:`, data);
           
@@ -96,6 +121,7 @@ export default function MainPanel() {
         .catch(err => {
           console.error(`Error fetching ${forecastDays}-day forecast data:`, err);
           setForecastData([]);
+          setApiError(`Failed to load forecast: ${err.message}`);
           setForecastLoading(false);
         });
     } else {
@@ -239,6 +265,15 @@ export default function MainPanel() {
           <div className="flex flex-col items-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
             <span className="text-text-primary text-lg">Loading forecast data...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Display API Error */}
+      {apiError && (
+        <div className="fixed top-20 left-0 right-0 z-50 flex justify-center">
+          <div className="bg-danger text-white px-4 py-2 rounded-md shadow-lg">
+            {apiError}
           </div>
         </div>
       )}
