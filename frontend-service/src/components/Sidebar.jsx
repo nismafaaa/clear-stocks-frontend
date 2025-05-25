@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
+// Use environment variable with fallback
+const API_BASE = process.env.REACT_APP_API_BASE;
+
 const TICKERS = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'F', 'GOOG', 'PONY', 'QBTS', 'IONQ', 'META'];
 
 export default function Sidebar({
@@ -20,7 +23,34 @@ export default function Sidebar({
 
     const fetchDates = async () => {
       try {
-        const res = await fetch(`http://10.34.100.114:8002/fetch-dates?ticker=${selectedStock}`);
+        const res = await fetch(`${API_BASE}/fetch-dates?ticker=${selectedStock}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+            'User-Agent': 'StockApp/1.0', // Add a custom user agent
+            'X-Requested-With': 'XMLHttpRequest' // Additional header to bypass some protections
+          },
+          mode: 'cors', // Explicitly set CORS mode
+          cache: 'no-store',
+          credentials: 'omit' // Don't send credentials
+        });
+
+        if (!res.ok) {
+          // Check if it's the ngrok abuse protection page
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('text/html')) {
+            const htmlText = await res.text();
+            if (htmlText.includes('ngrok') && htmlText.includes('abuse')) {
+              console.error('ngrok abuse protection triggered');
+              return;
+            }
+          }
+          console.warn(`Bad response: ${res.status}`);
+          return;
+        }
+
         const result = await res.json();
 
         console.log("Raw dates response for", selectedStock, ":", result);
