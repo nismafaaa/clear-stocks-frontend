@@ -46,7 +46,7 @@ export default function Sidebar({
   const isReady = availableDates.length > 0;
 
   return (
-    <aside className="w-[250px] bg-dark-bg p-4 text-text-primary space-y-4 border-r border-dark-border">
+    <aside className="w-[250px] bg-dark-bg p-4 text-text-primary space-y-4 border-r border-dark-border rounded-r-2xl">
       <h2 className="text-lg font-semi-bold text-text-primary">Settings</h2>
 
       <div>
@@ -54,7 +54,7 @@ export default function Sidebar({
         <select
           value={selectedStock || ""}
           onChange={(e) => setSelectedStock(e.target.value)}
-          className="w-full p-2 rounded bg-dark-card text-text-primary border border-dark-border focus:border-primary focus:outline-none"
+          className="w-full p-2 rounded-xl bg-dark-card text-text-primary border border-dark-border focus:border-primary focus:outline-none"
         >
           <option value="" disabled>Select a stock</option>
           {TICKERS.map((ticker) => (
@@ -75,7 +75,7 @@ export default function Sidebar({
               min={availableDates[0]}
               max={endDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full p-2 rounded bg-dark-card text-text-primary border border-dark-border focus:border-primary focus:outline-none calendar-white"
+              className="w-full p-2 rounded-xl bg-dark-card text-text-primary border border-dark-border focus:border-primary focus:outline-none calendar-white"
             />
           </div>
 
@@ -87,7 +87,7 @@ export default function Sidebar({
               min={startDate}
               max={availableDates.at(-1)}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full p-2 rounded bg-dark-card text-text-primary border border-dark-border focus:border-primary focus:outline-none calendar-white"
+              className="w-full p-2 rounded-xl bg-dark-card text-text-primary border border-dark-border focus:border-primary focus:outline-none calendar-white"
             />
           </div>
         </>
@@ -98,7 +98,7 @@ export default function Sidebar({
         <select
           value={forecastDays === 5 || forecastDays === 21 ? forecastDays : ""}
           onChange={e => setForecastDays(Number(e.target.value) || 0)}
-          className="w-full p-2 rounded bg-dark-card text-text-primary border border-dark-border focus:border-primary focus:outline-none"
+          className="w-full p-2 rounded-xl bg-dark-card text-text-primary border border-dark-border focus:border-primary focus:outline-none"
         >
           <option value="">Select prediction</option>
           <option value={5}>Predict 5 days ahead</option>

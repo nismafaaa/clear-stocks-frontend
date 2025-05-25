@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from "./Sidebar";
 import Header from "./Header";
@@ -15,8 +15,6 @@ import {
   BarSeries,
 } from "react-financial-charts";
 import {
-  LineChart as SimpleLineChart,
-  Line as SimpleLine,
   XAxis as SimpleXAxis,
   YAxis as SimpleYAxis,
   Tooltip as SimpleTooltip,
@@ -28,7 +26,8 @@ import { format } from "d3-format";
 import { timeFormat } from "d3-time-format";
 import { scaleTime } from "d3-scale";
 
-const API_BASE = "http://10.34.100.114:8002";
+// Replace the hardcoded API_BASE with environment variable
+const API_BASE = process.env.REACT_APP_API_BASE;
 
 export default function MainPanel() {
   const { ticker } = useParams(); // Get ticker from URL params
@@ -40,6 +39,8 @@ export default function MainPanel() {
   const [historicalData, setHistoricalData] = useState([]);
   const [forecastData, setForecastData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const forecastChartRef = useRef(null);
 
   useEffect(() => {
     const fetchHistorical = async () => {
@@ -63,14 +64,21 @@ export default function MainPanel() {
     fetchHistorical();
   }, [selectedStock, startDate, endDate]);
 
-  // Fetch forecast data for AAPL when 5 days is selected
+  // Fetch forecast data for any ticker when 5 or 21 days is selected
   useEffect(() => {
-    if (selectedStock === "AAPL" && forecastDays === 5) {
-      console.log("Fetching forecast data for AAPL");
-      fetch(`${API_BASE}/fetch-recent-weekly-predict?ticker=test2`)
+    if (forecastDays === 5 || forecastDays === 21) {
+      setForecastLoading(true);
+      console.log(`Fetching ${forecastDays}-day forecast data for ${selectedStock}`);
+      
+      // Determine which API endpoint to use based on forecastDays
+      const forecastEndpoint = forecastDays === 5 
+        ? `${API_BASE}/fetch-recent-weekly-predict?ticker=${selectedStock}`
+        : `${API_BASE}/fetch-recent-monthly-predict?ticker=${selectedStock}`;
+      
+      fetch(forecastEndpoint)
         .then(res => res.json())
         .then(data => {
-          console.log("Raw forecast data:", data);
+          console.log(`Raw ${forecastDays}-day forecast data:`, data);
           
           // Process the forecast data structure properly
           const processedData = Array.isArray(data)
@@ -81,12 +89,14 @@ export default function MainPanel() {
               }))
             : [];
           
-          console.log("Processed forecast data:", processedData);
+          console.log(`Processed ${forecastDays}-day forecast data:`, processedData);
           setForecastData(processedData);
+          setForecastLoading(false);
         })
         .catch(err => {
-          console.error("Error fetching forecast data:", err);
+          console.error(`Error fetching ${forecastDays}-day forecast data:`, err);
           setForecastData([]);
+          setForecastLoading(false);
         });
     } else {
       setForecastData([]);
@@ -189,8 +199,23 @@ export default function MainPanel() {
   useEffect(() => {
     if (ticker) {
       setSelectedStock(ticker);
+      // Reset forecast days to 0 (Select prediction) when changing ticker
+      setForecastDays(0);
     }
   }, [ticker]);
+
+  // Scroll to forecast chart when forecast data is loaded
+  useEffect(() => {
+    if (forecastData.length > 0 && forecastChartRef.current && !forecastLoading) {
+      // Use a small timeout to ensure DOM is updated
+      setTimeout(() => {
+        forecastChartRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start'
+        });
+      }, 300);
+    }
+  }, [forecastData, forecastLoading]);
 
   return (
     <div className="flex flex-col min-h-screen bg-dark-bg">
@@ -208,11 +233,23 @@ export default function MainPanel() {
         </div>
       )}
 
+      {/* Forecast loading overlay */}
+      {forecastLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+            <span className="text-text-primary text-lg">Loading forecast data...</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-1 mt-16 mb-16">
         <Sidebar
           selectedStock={selectedStock}
           setSelectedStock={(newStock) => {
             setSelectedStock(newStock);
+            // Reset forecast days to 0 (Select prediction) when user manually changes ticker
+            setForecastDays(0); 
             navigate(`/chart/${newStock}`);
           }}
           startDate={startDate}
@@ -232,9 +269,15 @@ export default function MainPanel() {
             <span className="mr-1">←</span> Back to Markets
           </button>
 
-          <h1 className="text-3xl font-bold text-center text-text-primary">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-text-primary">
             What's Up with {selectedStock}? 📈
           </h1>
+          <p className="text-sm text-text-primary mt-1">
+            Peeking into the future — 5 or 21 days at a time. Not quite time travel, but pretty close.
+          </p>
+        </div>
+
 
           {loading ? (
             <p className="text-center text-text-primary">Loading data...</p>
@@ -243,33 +286,33 @@ export default function MainPanel() {
               {/* ⚡️Market Insights Cards */}
               {insights && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-7">
-                  <div className="bg-dark-card p-2 rounded-md border border-dark-border shadow-blue-glow min-w-[120px]">
+                  <div className="bg-[#13151e] p-2 rounded-xl border border-dark-border min-w-[120px]">
                     <div className="text-xs text-text-secondary">Highest Close</div>
                     <div className="text-text-primary font-bold">${insights.highestClose}</div>
                   </div>
-                  <div className="bg-dark-card p-2 rounded-md border border-dark-border shadow-blue-glow min-w-[120px]">
+                  <div className="bg-[#13151e] p-2 rounded-xl border border-dark-border min-w-[120px]">
                     <div className="text-xs text-text-secondary">Lowest Close</div>
                     <div className="text-text-primary font-bold">${insights.lowestClose}</div>
                   </div>
-                  <div className="bg-dark-card p-2 rounded-md border border-dark-border shadow-blue-glow min-w-[120px]">
+                  <div className="bg-[#13151e] p-2 rounded-xl border border-dark-border min-w-[120px]">
                     <div className="text-xs text-text-secondary">Average Close</div>
                     <div className="text-text-primary font-bold">${insights.avgClose}</div>
                   </div>
-                  <div className="bg-dark-card p-2 rounded-md border border-dark-border shadow-blue-glow min-w-[120px]">
+                  <div className="bg-[#13151e] p-2 rounded-xl border border-dark-border min-w-[120px]">
                     <div className="text-xs text-text-secondary">Highest Price</div>
                     <div className="text-text-primary font-bold">${insights.highestPrice}</div>
                   </div>
-                  <div className="bg-dark-card p-2 rounded-md border border-dark-border shadow-blue-glow min-w-[120px]">
+                  <div className="bg-[#13151e] p-2 rounded-xl border border-dark-border min-w-[120px]">
                     <div className="text-xs text-text-secondary">Lowest Price</div>
                     <div className="text-text-primary font-bold">${insights.lowestPrice}</div>
                   </div>
-                  <div className="bg-dark-card p-2 rounded-md border border-dark-border shadow-blue-glow min-w-[120px]">
+                  <div className="bg-[#13151e] p-2 rounded-xl border border-dark-border min-w-[120px]">
                     <div className="text-xs text-text-secondary">% Change</div>
                     <div className={insights.percentChange >= 0 ? "text-success font-bold" : "text-danger font-bold"}>
                       {insights.percentChange >= 0 ? "+" : ""}{insights.percentChange}%
                     </div>
                   </div>
-                  <div className="bg-dark-card p-2 rounded-md border border-dark-border shadow-blue-glow min-w-[120px]">
+                  <div className="bg-[#13151e] p-2 rounded-xl border border-dark-border min-w-[120px]">
                     <div className="text-xs text-text-secondary">Total Volume</div>
                     <div className="text-text-primary font-bold">{insights.totalVolume}</div>
                   </div>
@@ -277,7 +320,7 @@ export default function MainPanel() {
               )}
 
               {/* Candlestick Chart */}
-              <div className="bg-dark-card p-4 pb-8 pt-8 rounded-xl border border-dark-border shadow-blue-glow mb-16">
+              <div className="bg-[#13151e] p-4 pb-8 pt-8 rounded-2xl border border-dark-border mb-16">
                 <h2 className="text-lg font-semibold mb-6 text-text-primary">
                   {selectedStock} Historical Prices ({startDate} to {endDate})
                 </h2>
@@ -393,7 +436,7 @@ export default function MainPanel() {
                         
                         <BarSeries
                           yAccessor={(d) => d.volume}
-                          fill={(d) => d.close > d.open ? "rgba(16, 185, 129, 0.5)" : "rgba(239, 68, 68, 0.5)"}
+                          fill="#2563EB"
                           opacity={0.5}
                         />
                       </Chart>
@@ -412,11 +455,14 @@ export default function MainPanel() {
                   </div>
                 )}
               </div>
-              {/* Forecast Line Chart for AAPL 5 days */}
-              {selectedStock === "AAPL" && forecastDays === 5 && forecastData.length > 0 && (
-                <div className="bg-dark-card p-4 rounded-xl border border-dark-border shadow-blue-glow mb-16">
+              {/* Forecast Line Chart for any ticker with 5 or 21 days selected */}
+              {(forecastDays === 5 || forecastDays === 21) && forecastData.length > 0 && (
+                <div 
+                  ref={forecastChartRef}
+                  className="bg-[#13151e] p-4 rounded-2xl border border-dark-border mb-16"
+                >
                   <h2 className="text-lg font-semibold mb-6 text-text-primary">
-                    {selectedStock} 5-Day Forecast
+                    {selectedStock} {forecastDays}-Day Forecast
                   </h2>
                   <div className="w-full h-80">
                     <SimpleResponsiveContainer width="100%" height="100%">

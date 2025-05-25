@@ -14,8 +14,8 @@ module.exports = {
         success: '#10B981',        // Neon Green
         danger: '#EF4444',         // Coral Red
         dark: {
-          bg: '#0F0F0F',          // Deep Black
-          card: '#1A1A1A',        // Dark Gray
+          bg: '#04060e',          // Deep Black
+          card: '#13151e',        // Dark Gray
           border: '#2A2A2A',      // Charcoal
         },
         text: {
@@ -25,7 +25,7 @@ module.exports = {
       },
       boxShadow: {
         'blue-glow': '0 0 20px rgba(37, 99, 235, 0.3)',
-        'purple-glow': '0 0 20px rgba(128, 0, 255, 0.3)',
+        'purple-glow': '0 0 20prgba(11, 12, 14, 0.3)3)',
         'green-glow': '0 0 15px rgba(16, 185, 129, 0.3)',
       }
     }

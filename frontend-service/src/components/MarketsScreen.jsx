@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart
+  XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart
 } from 'recharts';
 
 const API_BASE = "http://10.34.100.114:8002";
@@ -52,14 +52,10 @@ const MarketsScreen = () => {
             const prevPrice = parseFloat(data.open);
             const changeValue = price - prevPrice;
             const changePercent = ((changeValue) / prevPrice) * 100;
-            
-            // Use price trend direction to generate more realistic data
-            const trendDirection = price > prevPrice ? 1 : -1;
-            
+                        
             // For single data point, generate a more realistic looking chart
             const dataPoints = [];
-            const numPoints = 8; // Trading hours 9am-4pm (8 hours)
-            
+           
             let currentPrice = prevPrice;
             // Generate data points for each hour of trading
             for (let hour = 9; hour <= 16; hour++) {
@@ -239,7 +235,7 @@ const MarketsScreen = () => {
           <div className="mb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-4 w-full">
               {/* Market Sentiment */}
-              <div className="bg-dark-card p-4 rounded-md border border-dark-border shadow-blue-glow w-full">
+              <div className="bg-dark-card p-4 rounded-md border border-dark-border w-full">
                 <div className="text-sm text-text-secondary mb-1">Market</div>
                 <div className={`text-xl font-bold ${marketSentiment === 'Bullish' ? 'text-success' : 'text-danger'}`}>
                   {marketSentiment}
@@ -247,14 +243,14 @@ const MarketsScreen = () => {
               </div>
               {/* Market Leader */}
               {leader && (
-                <div className="bg-dark-card p-4 rounded-md border border-dark-border shadow-blue-glow w-full">
+                <div className="bg-dark-card p-4 rounded-md border border-dark-border w-full">
                   <div className="text-sm text-text-secondary mb-1">Leader</div>
                   <div className="text-xl font-bold text-text-primary">{leader.ticker}</div>
                 </div>
               )}
               {/* Best Stock */}
               {bestStock && (
-                <div className="bg-dark-card p-4 rounded-md border border-dark-border shadow-blue-glow w-full">
+                <div className="bg-dark-card p-4 rounded-md border border-dark-border w-full">
                   <div className="text-sm text-text-secondary mb-1">Top Stock</div>
                   <div className="flex justify-between items-center">
                     <div className="text-xl font-bold text-text-primary">{bestStock.ticker}</div>
@@ -264,7 +260,7 @@ const MarketsScreen = () => {
               )}
               {/* Worst Stock */}
               {worstStock && (
-                <div className="bg-dark-card p-4 rounded-md border border-dark-border shadow-blue-glow w-full">
+                <div className="bg-dark-card p-4 rounded-md border border-dark-border w-full">
                   <div className="text-sm text-text-secondary mb-1">Worst Stock</div>
                   <div className="flex justify-between items-center">
                     <div className="text-xl font-bold text-text-primary">{worstStock.ticker}</div>
@@ -279,7 +275,7 @@ const MarketsScreen = () => {
           
           <div className="flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-6">
             {/* Stock List */}
-            <div className="w-full md:w-1/3 bg-dark-card rounded-xl border border-dark-border shadow-blue-glow p-4">
+            <div className="w-full md:w-1/3 bg-dark-card rounded-xl border border-dark-border p-4">
               <div className="flex justify-between pb-2 border-b border-dark-border mb-2">
                 <div className="font-bold text-text-primary">Symbol</div>
                 <div className="font-bold text-text-primary">Price</div>
@@ -308,7 +304,7 @@ const MarketsScreen = () => {
             </div>
             
             {/* Chart for Selected Stock */}
-            <div className="w-full md:w-2/3 bg-dark-card rounded-xl border border-dark-border shadow-blue-glow p-4 flex flex-col">
+            <div className="w-full md:w-2/3 bg-dark-card rounded-xl border border-dark-border p-4 flex flex-col">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-text-primary">{selectedTicker}</h3>
                 <button 
